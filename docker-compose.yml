@@ -11,7 +11,7 @@ services:
       DOMAIN: ${DOMAIN}
       EMAIL_LETSENCRYPT: ${EMAIL_LETSENCRYPT}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy:ro    # <- monta a PASTA, não o ficheiro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -36,13 +36,7 @@ services:
       docker-php-ext-install pdo pdo_mysql &&
       apache2-foreground
       "
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
-  # Executa UMA VEZ para criar/clonar a base e o utilizador
   db-provisioner:
     image: mysql:8
     restart: "no"

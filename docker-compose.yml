@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  caddy:
+    image: caddy:2
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      EMAIL_LETSENCRYPT: ${EMAIL_LETSENCRYPT}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app-php
+
+  app-php:
+    image: php:8.2-apache
+    restart: always
+    environment:
+      APACHE_DOCUMENT_ROOT: /var/www/html/public
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_SSL_MODE: ${DB_SSL_MODE}
+    volumes:
+      - ./app:/var/www/html:rw
+    command: >
+      bash -lc "
+      sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf &&
+      docker-php-ext-install pdo pdo_mysql &&
+      apache2-foreground
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Executa UMA VEZ para criar/clonar a base e o utilizador
+  db-provisioner:
+    image: mysql:8
+    restart: "no"
+    environment:
+      MYSQL_HOST: ${DB_HOST}
+      MYSQL_PORT: ${DB_PORT}
+      MYSQL_ROOT_USER: ${MYSQL_ROOT_USER}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TEMPLATE_DB: ${TEMPLATE_DB}
+      NEW_DB: ${DB_NAME}
+      NEW_DB_USER: ${DB_USER}
+      NEW_DB_PASS: ${DB_PASS}
+      DB_SSL_MODE: ${DB_SSL_MODE}
+    volumes:
+      - ./scripts/provision-db.sh:/provision-db.sh:ro
+    entrypoint: [ "bash", "-lc", "/provision-db.sh" ]
+
+volumes:
+  caddy_data:
+  caddy_config:
